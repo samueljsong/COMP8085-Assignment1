@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <png.h>
+#include "png_reader.h"
 
 static FILE *open_png_file(const char *filename);
 static png_structp initialize_png_structs(FILE *fp, png_infop *info_ptr);
@@ -11,34 +12,80 @@ static void free_memory(png_bytep *row_pointers, int height);
 static void cleanup(FILE *fp, png_structp png_ptr, png_infop info_ptr);
 
 
-int main(int argc, char *argv[])
+Image *read_png(const char *filename)
 {
-    int width;
-    int height;
-    int bit_depth;
-    int color_type;
-    const char *filename;
     FILE *fp;
     png_infop info_ptr;
     png_structp png_ptr;
-    png_bytep *row_pointers;
 
-    if(argc != 2)
+    Image *image = malloc(sizeof(Image));
+
+    if (image == NULL)
     {
-        fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
-        return EXIT_FAILURE;
+        return NULL;
     }
 
-    filename = argv[1];
     fp = open_png_file(filename);
     png_ptr = initialize_png_structs(fp, &info_ptr);
-    read_png_metadata(png_ptr, info_ptr, &width, &height, &bit_depth, &color_type);
-    row_pointers = allocate_memory(png_ptr, info_ptr, height);
-    process_pixels(row_pointers, width, height);
-    free_memory(row_pointers, height);
+    read_png_metadata(
+        png_ptr, 
+        info_ptr, 
+        &image->width, 
+        &image->height, 
+        &image->bit_depth, 
+        &image->color_type
+    );
+
+    image -> channels = png_get_channels(png_ptr, info_ptr);
+    image -> rows     = allocate_memory(
+        png_ptr,
+        info_ptr,
+        image->height
+    );
+
     cleanup(fp, png_ptr, info_ptr);
 
-    return EXIT_SUCCESS;
+    return image;
+}
+
+void free_image(Image *image)
+{
+    if (image == NULL)
+    {
+        return;
+    }
+
+    for (int y = 0; y < image -> height; y++)
+    {
+        free(image->rows[y]);
+    }
+
+    free(image->rows);
+    free(image);
+}
+
+void print_pixels(const Image *image)
+{
+    if (image == NULL)
+    {
+        return;
+    }
+
+    for (int y = 0; y < image->height; y++)
+    {
+        for (int x = 0; x < image->width; x++)
+        {
+            png_bytep pixel = &image->rows[y][x * image->channels];
+            printf("Pixel [%d, %d]: ", x, y);
+
+            for (int c = 0; c < image->channels; c++)
+            {
+                printf("%d ", pixel[c]);
+            }
+
+            printf("\n");
+        }
+    }
 }
 
 static FILE *open_png_file(const char *filename)
