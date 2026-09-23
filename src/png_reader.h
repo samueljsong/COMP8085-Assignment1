@@ -16,5 +16,7 @@ typedef struct {
 Image *read_png(const char *filename);
 void free_image(Image *image);
 void print_pixels(const Image *image);
+void alter_rgba_values(const Image *image, int *cipher_text_binary, int cipher_text_binary_length);
+int write_png(const char *filename, const Image *image);
 
 #endif

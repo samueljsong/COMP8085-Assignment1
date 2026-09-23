@@ -3,13 +3,14 @@
 #include <png.h>
 #include "png_reader.h"
 
-static FILE *open_png_file(const char *filename);
+static FILE        *open_png_file        (const char *filename);
 static png_structp initialize_png_structs(FILE *fp, png_infop *info_ptr);
+static png_bytep   *allocate_memory      (png_structp png_ptr, png_infop info_ptr, int height);
+
 static void read_png_metadata(png_structp png_ptr, png_infop info_ptr, int *width, int *height, int *bit_depth, int *color_type);
-static png_bytep *allocate_memory(png_structp png_ptr, png_infop info_ptr, int height);
-static void process_pixels(png_bytep *row_pointers, int width, int height);
-static void free_memory(png_bytep *row_pointers, int height);
-static void cleanup(FILE *fp, png_structp png_ptr, png_infop info_ptr);
+static void process_pixels   (png_bytep *row_pointers, int width, int height);
+static void free_memory      (png_bytep *row_pointers, int height);
+static void cleanup          (FILE *fp, png_structp png_ptr, png_infop info_ptr);
 
 
 Image *read_png(const char *filename)
@@ -86,6 +87,110 @@ void print_pixels(const Image *image)
             printf("\n");
         }
     }
+}
+
+void alter_rgba_values(const Image *image, int *cipher_text_binary, int cipher_text_binary_length)
+{
+    if (image == NULL)
+    {
+        return;
+    }
+
+    int cipher_text_counter = 0;
+
+    for (int y = 0; y < image->height; y++)
+    {
+        for (int x = 0; x < image->width; x++)
+        {
+            png_bytep pixel = &image->rows[y][x * image->channels];
+
+            for (int c = 0; c < image->channels; c++)
+            {
+                if (cipher_text_counter == cipher_text_binary_length)
+                {
+                    return;
+                }
+
+                int cipher_text_bit = cipher_text_binary[cipher_text_counter];
+
+                if (cipher_text_bit == 1)
+                {
+                    pixel[c] = pixel[c] | cipher_text_bit; 
+                }
+                
+                if (cipher_text_bit == 0)
+                {
+                    pixel[c] = pixel[c] & cipher_text_bit;
+                }
+
+                cipher_text_counter++;
+            }
+        }
+
+    }
+}
+
+// png_structp controls the writing process
+// png_infop describes what the image should look like.
+int write_png(const char *filename, const Image *image)
+{
+    FILE *fp = fopen(filename, "wb");
+
+    if (fp == NULL)
+    {
+        return 1;
+    }
+
+    // png_structp is a libpng defined pointer type 
+    // -> main obj libpng will use to keep track of the png writing process
+    png_structp png = png_create_write_struct(
+        PNG_LIBPNG_VER_STRING,  // tells the libpng  which version your program was compiled against. from png.h
+        NULL, // nulls are saying use default behaviour
+        NULL, // you would provide custom handlers in the three NULLS
+        NULL
+    );
+
+    if (png == NULL)
+    {
+        fclose(fp);
+        return 1;
+    }
+
+    // creates another libpng structure keeping track of
+    //width, height, bit depth, color type, interlacing, etc.
+    png_infop info = png_create_info_struct(png);
+
+    if (info == NULL)
+    {
+        png_destroy_write_struct(&png, NULL);
+        fclose(fp);
+        return 1;
+    }
+
+    // connects your writer to the actual file you are going to be writing out
+    png_init_io(png, fp);
+
+    // sets te image header
+    png_set_IHDR(
+        png,
+        info,
+        image->width,
+        image->height,
+        8,  // each color channel uses 8 bit -> 255
+        PNG_COLOR_TYPE_RGBA,            // Tells libpng each pixel has RGBA values
+        PNG_INTERLACE_NONE,             // Don't use interlacing
+        PNG_COMPRESSION_TYPE_DEFAULT,   // normal png compression
+        PNG_FILTER_TYPE_DEFAULT         // normal filter
+    );
+
+    png_write_info(png, info);
+    png_write_image(png, image->rows);
+    png_write_end(png, NULL);
+    png_destroy_write_struct(&png, &info);
+
+    fclose(fp);
+
+    return 0;
 }
 
 static FILE *open_png_file(const char *filename)

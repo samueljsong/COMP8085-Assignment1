@@ -1,0 +1,5 @@
+apple
+$(pkg-config --cflags --libs libpng)
+
+linux 
+-lpng
