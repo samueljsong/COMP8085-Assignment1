@@ -35,7 +35,7 @@ void otp_encrypt(char *clear_text, int *cipher_text, char *key, int length)
 
     calculate_cipher_text_integers(clear_text, key, cipher_text, length);
 
-    printf("\nOTP: ");
+    printf("\nWord after OTP: ");
     for (int i = 0; i < length; i++)
     {
         printf("%c", alphabet[cipher_text[i]]);

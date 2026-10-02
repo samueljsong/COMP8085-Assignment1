@@ -15,7 +15,7 @@ void process_file(char *clear_text_buffer)
 
     while (fgets(clear_text_buffer, sizeof(clear_text_buffer), file) != NULL)
     {
-        printf("%s", clear_text_buffer);
+        printf("Word to encode: %s", clear_text_buffer);
     }
 
     fclose(file);

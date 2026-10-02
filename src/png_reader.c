@@ -126,7 +126,6 @@ void alter_rgba_values(const Image *image, int *cipher_text_binary, int cipher_t
                 cipher_text_counter++;
             }
         }
-
     }
 }
 
