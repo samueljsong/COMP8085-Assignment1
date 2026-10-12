@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <string.h>
 
 #include "cli.h"
 
@@ -34,6 +35,23 @@ int validate_file(char *file_path)
     return 1;
 }
 
+int validate_png(char *file_path)
+{
+    if (file_path == NULL)
+    {
+        return 0;
+    }
+
+    char *dot = strrchr(file_path, '.');
+
+    if (dot != NULL && strcmp(dot, ".png") == 0)
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
 void parse_arguments(int argc, char *argv[], Config *config)
 {
     int option;
@@ -62,6 +80,13 @@ void parse_arguments(int argc, char *argv[], Config *config)
                 {
                     config->mode = MODE_ERROR;
                     config->error_message = "ERROR [FILE NOT FOUND]: Pleaase make sure the file path to the image is correct.";
+                    return;
+                }
+
+                if (!validate_png(argv[optind]))
+                {
+                    config->mode = MODE_ERROR;
+                    config->error_message = "ERROR [WRONG FILE]: Please ensure the image file is a png file.";
                     return;
                 }
 
