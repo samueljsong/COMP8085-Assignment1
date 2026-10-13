@@ -2,8 +2,11 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <string.h>
+#include <inttypes.h>
+#include <stdbool.h>
 
 #include "cli.h"
+#include "png_reader.h"
 
 static struct option long_options[] =
 {
@@ -15,11 +18,11 @@ static struct option long_options[] =
 
 void print_usage()
 {
-    printf("Usage: [OPTIONS][paths...]\n\n");
+    printf("\nUsage: [OPTIONS][paths...]\n\n");
     printf("Options:\n");
-    printf("    -e, --encode <image_file> <cleartext_file> <secret>     Encode a message into a PNG\n");
-    printf("    -d, --decode <image_file> <secret>                      Decode an encrypted message from a PNG\n");
-    printf("    -h, --help                                              Display usage of the program\n");
+    printf("    -e, --encode <image_file.png> <cleartext_file.txt> <secret | secret_file.txt>     Encode a message into a PNG\n");
+    printf("    -d, --decode <image_file.png> <secret | secret_file.txt>                          Decode an encrypted message from a PNG\n");
+    printf("    -h, --help                                                                        Display usage of the program\n\n");
 }
 
 int validate_file(char *file_path)
@@ -50,6 +53,18 @@ int validate_png(char *file_path)
     }
 
     return 0;
+}
+
+bool is_text_file(char *argument)
+{
+    char *dot = strrchr(argument, '.');
+
+    if (dot != NULL && strcmp(dot, ".txt") == 0)
+    {
+        return true;
+    }
+    
+    return false;
 }
 
 void parse_arguments(int argc, char *argv[], Config *config)
@@ -101,6 +116,16 @@ void parse_arguments(int argc, char *argv[], Config *config)
                 config->image_file     = argv[optind];
                 config->cleartext_file = argv[optind + 1];
                 config->secret         = argv[optind + 2];
+
+                if (is_text_file(argv[optind + 2]))
+                {
+                    config->is_secret_text_file = true;
+                }
+                else
+                {
+                    config->is_secret_text_file = false;
+                }
+
                 break;
             
             case 'd':
@@ -109,12 +134,45 @@ void parse_arguments(int argc, char *argv[], Config *config)
                     config->mode = MODE_NONE;
                     return;
                 }
-                config->mode = MODE_DECRYPT;
+
+                if (argc - optind != 2)
+                {
+                    config->mode = MODE_ERROR;
+                    config->error_message = "ERROR: decode requires <image_file> <secret>\n";
+                    return;
+                }
+
+                if (!validate_file(argv[optind]))
+                {
+                    config->mode = MODE_ERROR;
+                    config->error_message = "ERROR [FILE NOT FOUND]: Pleaase make sure the file path to the image is correct.";
+                    return;
+                }
+
+                if (!validate_png(argv[optind]))
+                {
+                    config->mode = MODE_ERROR;
+                    config->error_message = "ERROR [WRONG FILE]: Please ensure the image file is a png file.";
+                    return;
+                }
+
+                config->mode       = MODE_DECRYPT;
+                config->image_file = argv[optind];
+                config->secret     = argv[optind + 1];
+
+                if (is_text_file(argv[optind + 1]))
+                {
+                    config->is_secret_text_file = true;
+                }
+                else
+                {
+                    config->is_secret_text_file = false;
+                }
+
                 break;
             
             case 'h':
                 config->mode = MODE_HELP;
-                print_usage();
                 break;
             
             default:

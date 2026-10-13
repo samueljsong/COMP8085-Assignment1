@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <png.h>
 #include "png_reader.h"
 
@@ -28,21 +29,31 @@ Image *read_png(const char *filename)
 
     fp = open_png_file(filename);
     png_ptr = initialize_png_structs(fp, &info_ptr);
+
     read_png_metadata(
-        png_ptr, 
-        info_ptr, 
-        &image->width, 
-        &image->height, 
-        &image->bit_depth, 
+        png_ptr,
+        info_ptr,
+        &image->width,
+        &image->height,
+        &image->bit_depth,
         &image->color_type
     );
 
-    image -> channels = png_get_channels(png_ptr, info_ptr);
-    image -> rows     = allocate_memory(
+    image->channels = png_get_channels(png_ptr, info_ptr);
+
+    image->rows = allocate_memory(
         png_ptr,
         info_ptr,
         image->height
     );
+
+    // Calculate maximum message capacity using RGB only
+    uint64_t capacity =
+        (uint64_t)image->width * image->height * 3;
+
+    // Reserve 32 bits for the message length header
+    image->max_message_length =
+        capacity >= 32 ? capacity - 32 : 0;
 
     cleanup(fp, png_ptr, info_ptr);
 
@@ -89,14 +100,35 @@ void print_pixels(const Image *image)
     }
 }
 
-void alter_rgba_values(const Image *image, int *cipher_text_binary, int cipher_text_binary_length)
+void alter_rgba_values(Image *image, char *cipher_text, size_t length)
 {
-    if (image == NULL)
+    if (image == NULL || cipher_text == NULL)
     {
         return;
     }
 
-    int cipher_text_counter = 0;
+    // Only RGB channels are used
+    if (image->channels != 4 || image->bit_depth != 8 ||
+        image->color_type != PNG_COLOR_TYPE_RGBA)
+    {
+        fprintf(stderr, "Image must be 8-bit RGBA\n");
+        return;
+    }
+
+    // 32 bits reserved for message length
+    uint64_t capacity = (uint64_t)image->width * image->height * 3;
+
+    if (capacity < 32 ||
+        length > UINT32_MAX / 8 ||
+        length > (capacity - 32) / 8)
+    {
+        fprintf(stderr, "Message exceeds image capacity\n");
+        return;
+    }
+
+    uint32_t cipher_text_binary_length = (uint32_t)(length * 8);
+
+    uint64_t counter = 0;
 
     for (int y = 0; y < image->height; y++)
     {
@@ -104,26 +136,37 @@ void alter_rgba_values(const Image *image, int *cipher_text_binary, int cipher_t
         {
             png_bytep pixel = &image->rows[y][x * image->channels];
 
-            for (int c = 0; c < image->channels; c++)
+            // Only modify RGB, never Alpha
+            for (int c = 0; c < 3; c++)
             {
-                if (cipher_text_counter == cipher_text_binary_length)
+                int bit;
+
+                if (counter < 32)
                 {
-                    return;
+                    // First 32 bits store ciphertext length
+                    bit = (cipher_text_binary_length >> (31 - counter)) & 1;
+                }
+                else
+                {
+                    // Remaining bits store ciphertext
+                    uint64_t message_index = counter - 32;
+
+                    if (message_index >= cipher_text_binary_length)
+                    {
+                        return;
+                    }
+
+                    // Find the byte containing the current bit
+                    unsigned char byte = cipher_text[message_index / 8];
+
+                    // Extract the bit from the byte
+                    bit = (byte >> (7 - (message_index % 8))) & 1;
                 }
 
-                int cipher_text_bit = cipher_text_binary[cipher_text_counter];
+                // Change only the least significant bit
+                pixel[c] = (pixel[c] & 0xFE) | bit;
 
-                if (cipher_text_bit == 1)
-                {
-                    pixel[c] = pixel[c] | cipher_text_bit; 
-                }
-                
-                if (cipher_text_bit == 0)
-                {
-                    pixel[c] = pixel[c] & cipher_text_bit;
-                }
-
-                cipher_text_counter++;
+                counter++;
             }
         }
     }
@@ -337,3 +380,93 @@ static void cleanup(FILE *fp, png_structp png_ptr, png_infop info_ptr)
     fclose(fp);
 }
 
+uint32_t get_message_length(const Image *image)
+{
+    uint32_t length = 0;
+    int counter = 0;
+
+    for (int y = 0; y < image->height; y++)
+    {
+        for (int x = 0; x < image->width; x++)
+        {
+            png_bytep pixel =
+                &image->rows[y][x * image->channels];
+
+            // Only read RGB, skip Alpha
+            for (int c = 0; c < 3; c++)
+            {
+                int bit = pixel[c] & 1;
+
+                length = (length << 1) | bit;
+
+                counter++;
+
+                if (counter == 32)
+                    return length;
+            }
+        }
+    }
+
+    return 0;
+}
+
+int extract_cipher_text(Image *image, char *cipher_text, size_t length)
+{
+    if (image == NULL || cipher_text == NULL)
+        return 1;
+
+    if (image->channels != 4 ||
+        image->bit_depth != 8 ||
+        image->color_type != PNG_COLOR_TYPE_RGBA)
+    {
+        fprintf(stderr, "ERROR: Image must be 8-bit RGBA\n");
+        return 1;
+    }
+
+    uint64_t capacity = (uint64_t)image->width * image->height * 3;
+
+    if (capacity < 32 ||
+        length > (capacity - 32) / 8)
+    {
+        fprintf(stderr, "ERROR: Invalid ciphertext length\n");
+        return 1;
+    }
+
+    size_t bit_index = 0;
+    size_t total_bits = length * 8;
+    uint64_t counter = 0;
+
+    for (int y = 0; y < image->height; y++)
+    {
+        for (int x = 0; x < image->width; x++)
+        {
+            png_bytep pixel = &image->rows[y][x * image->channels];
+
+            for (int c = 0; c < 3; c++)
+            {
+                // Skip the first 32 bits (message length header)
+                if (counter < 32)
+                {
+                    counter++;
+                    continue;
+                }
+
+                if (bit_index >= total_bits)
+                    return 0;
+
+                int bit = pixel[c] & 1;
+
+                size_t byte_index = bit_index / 8;
+
+                // Reconstruct each byte, MSB first
+                cipher_text[byte_index] =
+                    (unsigned char)((cipher_text[byte_index] << 1) | bit);
+
+                bit_index++;
+                counter++;
+            }
+        }
+    }
+
+    return bit_index == total_bits ? 0 : 1;
+}

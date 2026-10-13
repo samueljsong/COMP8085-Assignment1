@@ -3,16 +3,16 @@
 
 void otp_encrypt(
     char *clear_text,
-    int *cipher_text,
+    char *cipher_text,
     char *key,
-    int length
+    size_t length
 );
 
 void otp_decrypt(
+    char *cipher_text,
     char *clear_text,
     char *key,
-    char *cipher_text,
-    int length
+    size_t length
 );
 
 #endif

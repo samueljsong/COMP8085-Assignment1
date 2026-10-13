@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #ifndef CLI_H
 #define CLI_H
 
@@ -16,6 +17,7 @@ typedef struct
     char *image_file;
     char *cleartext_file;
     char *secret;
+    bool is_secret_text_file;
     char *error_message;
 }Config;
 

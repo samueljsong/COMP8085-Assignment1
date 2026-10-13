@@ -29,43 +29,40 @@ void convert_to_lowercase(char *arr, int length)
     }
 }
 
-void otp_encrypt(char *clear_text, int *cipher_text, char *key, int length)
+void otp_encrypt(char *clear_text, char *cipher_text, char *key, size_t length)
 {
-    char alphabet[] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'};
-
-    calculate_cipher_text_integers(clear_text, key, cipher_text, length);
-
-    printf("\nWord after OTP: ");
-    for (int i = 0; i < length; i++)
+    for (size_t i = 0; i < length; i++)
     {
-        printf("%c", alphabet[cipher_text[i]]);
+        cipher_text[i] = clear_text[i] ^ key[i];
     }
 
-    printf("\nOTP Values: ");
-    for (int i = 0; i < length; i++)
+    printf("\nOTP Values (Decimal): ");
+    for (size_t i = 0; i < length; i++)
     {
-        printf("%d ", cipher_text[i]);
+        printf("%u ", (unsigned char)cipher_text[i]);
     }
+
     printf("\n");
 }
 
-// When incorporating with the png, make it so that it accepts decimal arr instead of char
-// This is because we want the calculations to be easier
-void otp_decrypt(char *clear_text, char *cipher_text, char *key, int length)
+void otp_decrypt(char *cipher_text, char *clear_text, char *key, size_t length)
 {
-    printf("OTP DECRYPT\n\n");
-
-    char alphabet[] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'};
-
-    for (int i = 0; i < length; i++)
+    for (size_t i = 0; i < length; i++)
     {
-        int temp = (cipher_text[i] - 'a') - (key[i] - 'a');
-
-        if (temp < 0)
-        {
-            temp = 26 + temp;
-        }
-
-        printf("%d ", temp);
+        clear_text[i] = cipher_text[i] ^ key[i];
     }
+
+    printf("\nDecoded Values (Decimal): ");
+    for (size_t i = 0; i < length; i++)
+    {
+        printf("%u ", (unsigned char)clear_text[i]);
+    }
+
+    printf("\nDecoded Message: ");
+    for (size_t i = 0; i < length; i++)
+    {
+        printf("%c", clear_text[i]);
+    }
+
+    printf("\n");
 }
