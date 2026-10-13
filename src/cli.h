@@ -14,11 +14,11 @@ typedef enum
 typedef struct 
 {
     CliMode mode;
-    char *image_file;
-    char *cleartext_file;
-    char *secret;
-    bool is_secret_text_file;
-    char *error_message;
+    char    *image_file;
+    char    *cleartext_file;
+    char    *secret;
+    bool    is_secret_text_file;
+    char    *error_message;
 }Config;
 
 void parse_arguments(int argc, char *argv[], Config *config);
