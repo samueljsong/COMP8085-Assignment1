@@ -50,6 +50,18 @@ void encode(Config *config)
 
     strcpy(clear_text, clear_text_buffer); // copying the message in txt file to clear_text
 
+    if (strlen(clear_text) == 0)
+    {
+        printf("ERROR: Please make sure your cleartext file is not empty");
+        return;
+    }
+
+    if (length != strlen(key))
+    {
+        printf("\nERROR [WRONG KEY PROVIDED]: The key is not the same length as the cipher text\n");
+        return;
+    }
+
     otp_encrypt(clear_text, cipher_text, key, length);
 
     alter_rgba_values(image, cipher_text, length);

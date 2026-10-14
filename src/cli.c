@@ -72,6 +72,12 @@ void parse_arguments(int argc, char *argv[], Config *config)
     int option;
     config->mode = MODE_NONE;
 
+    if (argc == 1)
+    {
+        print_usage();
+        return;
+    }
+
     while ((option = getopt_long(argc, argv, "edh", long_options, NULL)) != -1)
     {
         switch (option)
@@ -177,7 +183,7 @@ void parse_arguments(int argc, char *argv[], Config *config)
             
             default:
                 config->mode = MODE_ERROR;
-                config->error_message = "ERROR: Something went wrong...";
+                config->error_message = "ERROR: Please enter a correct mode. Try -h to see options.";
                 break;
         }
     }

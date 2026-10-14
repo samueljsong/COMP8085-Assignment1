@@ -13,6 +13,7 @@ static void process_pixels   (png_bytep *row_pointers, int width, int height);
 static void free_memory      (png_bytep *row_pointers, int height);
 static void cleanup          (FILE *fp, png_structp png_ptr, png_infop info_ptr);
 
+
 Image *read_png(const char *filename)
 {
     FILE *fp;
@@ -75,18 +76,34 @@ void free_image(Image *image)
     free(image);
 }
 
-void alter_rgba_values(Image *image, char *cipher_text, size_t length)
+void print_pixels(const Image *image)
 {
-    if (image == NULL || cipher_text == NULL)
+    if (image == NULL)
     {
         return;
     }
 
-    // Only RGB channels are used
-    if (image->channels != 4 || image->bit_depth != 8 ||
-        image->color_type != PNG_COLOR_TYPE_RGBA)
+    for (int y = 0; y < image->height; y++)
     {
-        fprintf(stderr, "Image must be 8-bit RGBA\n");
+        for (int x = 0; x < image->width; x++)
+        {
+            png_bytep pixel = &image->rows[y][x * image->channels];
+            printf("Pixel [%d, %d]: ", x, y);
+
+            for (int c = 0; c < image->channels; c++)
+            {
+                printf("%d ", pixel[c]);
+            }
+
+            printf("\n");
+        }
+    }
+}
+
+void alter_rgba_values(Image *image, char *cipher_text, size_t length)
+{
+    if (image == NULL || cipher_text == NULL)
+    {
         return;
     }
 
@@ -101,6 +118,7 @@ void alter_rgba_values(Image *image, char *cipher_text, size_t length)
         return;
     }
 
+    // Converting bytes to bits
     uint32_t cipher_text_binary_length = (uint32_t)(length * 8);
 
     uint64_t counter = 0;
@@ -193,8 +211,8 @@ int write_png(const char *filename, const Image *image)
         info,
         image->width,
         image->height,
-        8,  // each color channel uses 8 bit -> 255
-        PNG_COLOR_TYPE_RGBA,            // Tells libpng each pixel has RGBA values
+        image->bit_depth,
+        image->color_type,            
         PNG_INTERLACE_NONE,             // Don't use interlacing
         PNG_COMPRESSION_TYPE_DEFAULT,   // normal png compression
         PNG_FILTER_TYPE_DEFAULT         // normal filter
@@ -389,14 +407,6 @@ int extract_cipher_text(Image *image, char *cipher_text, size_t length)
 {
     if (image == NULL || cipher_text == NULL)
         return 1;
-
-    if (image->channels != 4 ||
-        image->bit_depth != 8 ||
-        image->color_type != PNG_COLOR_TYPE_RGBA)
-    {
-        fprintf(stderr, "ERROR: Image must be 8-bit RGBA\n");
-        return 1;
-    }
 
     uint64_t capacity = (uint64_t)image->width * image->height * 3;
 
