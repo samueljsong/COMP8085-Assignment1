@@ -357,3 +357,5 @@ Through this assignment, I have gained a better understanding of these topics
 - Message Length Header: Reserving initial bits to indicate the length of the encrypted message
 - Command Line Interface: Supporting encoding and decoding and input validation through command line arguments
 - PNG processing: Using libpng to read and write PNGs
+
+I learned that even seemingly insignificant parts of a file, such as the least significant bits of pixel values, can be used to hide information without noticeable changes. This made me realize that areas of a system that appear unused or unimportant can still be exploited for malicious purposes
